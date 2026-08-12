@@ -1,0 +1,11 @@
+Hi {{.Name}},
+
+Welcome! Please verify your email address to activate your account.
+
+Use the link below:
+
+{{.VerificationURL}}
+
+This link expires at {{.ExpiresAt}}.
+
+If you did not create an account, you can safely ignore this email.

@@ -1,0 +1,839 @@
+basePath: /
+definitions:
+  dto.Auth:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  dto.PresignedPreviewResponse:
+    properties:
+      expires_at:
+        type: string
+      file_key:
+        type: string
+      preview_url:
+        type: string
+    type: object
+  dto.PresignedUploadResponse:
+    properties:
+      expires_at:
+        type: string
+      file_key:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      upload_url:
+        type: string
+    type: object
+  dto.Session:
+    properties:
+      created_at:
+        type: string
+      current:
+        type: boolean
+      expires_at:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      user_agent:
+        type: string
+    type: object
+  dto.UploadFileResponse:
+    properties:
+      content_type:
+        type: string
+      file_key:
+        type: string
+      size:
+        type: integer
+      url:
+        type: string
+    type: object
+  dto.User:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      status_id:
+        type: integer
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  dto.UserListMetadata:
+    properties:
+      limit:
+        type: integer
+      skip:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.UserListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.User'
+        type: array
+      meta:
+        $ref: '#/definitions/dto.UserListMetadata'
+    type: object
+  enums.Status:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - StatusUnknown
+    - StatusActive
+    - StatusInactive
+    - StatusPending
+    - StatusSuspended
+    - StatusBlocked
+  health.ComponentStatus:
+    properties:
+      error:
+        type: string
+      latency:
+        type: string
+      status:
+        description: '"up" or "down"'
+        type: string
+    type: object
+  health.ReadinessResponse:
+    properties:
+      components:
+        additionalProperties:
+          $ref: '#/definitions/health.ComponentStatus'
+        type: object
+      status:
+        description: '"up" or "down"'
+        type: string
+      timestamp:
+        type: string
+    type: object
+  payloads.CreateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  payloads.LoginRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  payloads.MutationRequest:
+    properties:
+      version:
+        type: integer
+    required:
+    - version
+    type: object
+  payloads.PresignUploadRequest:
+    properties:
+      content_type:
+        type: string
+      filename:
+        type: string
+      folder:
+        type: string
+    required:
+    - content_type
+    - filename
+    type: object
+  payloads.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  payloads.RegisterRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  payloads.UpdateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      status_id:
+        $ref: '#/definitions/enums.Status'
+      version:
+        type: integer
+    required:
+    - email
+    - name
+    - status_id
+    - version
+    type: object
+  response.Error:
+    properties:
+      code:
+        type: string
+      errors:
+        items:
+          $ref: '#/definitions/validator.FieldError'
+        type: array
+      message:
+        type: string
+    type: object
+  validator.FieldError:
+    properties:
+      field:
+        type: string
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: API Support
+    url: https://github.com/nassabiq/go-chi-boilerplate
+  description: Production-Grade REST API boilerplate built with Go, Chi, PostgreSQL,
+    Redis, and NATS JetStream.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Go Chi Boilerplate API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates email and password, returns JWT access and refresh
+        token pair
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Auth'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Authenticate user and issue tokens
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      description: Revokes the current session and invalidates refresh token
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Logout current session
+      tags:
+      - Auth
+  /auth/logout-all:
+    post:
+      description: Revokes all active sessions for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Logout all active sessions
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Returns the profile of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Rotates refresh token and generates new access token
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.Auth'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Refresh access token
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user account with pending status
+      parameters:
+      - description: Registration payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Register a new user
+      tags:
+      - Auth
+  /auth/sessions:
+    get:
+      description: Returns all active sessions for the current authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.Session'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: List active sessions
+      tags:
+      - Auth
+  /auth/sessions/{session_id}:
+    delete:
+      description: Revokes an active session by session ID
+      parameters:
+      - description: Session ID to revoke
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Revoke specific session
+      tags:
+      - Auth
+  /health/live:
+    get:
+      description: Returns 200 OK if server process is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe
+      tags:
+      - Health
+  /health/ready:
+    get:
+      description: Checks connectivity to PostgreSQL, Redis, and NATS
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/health.ReadinessResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/health.ReadinessResponse'
+      summary: Readiness probe
+      tags:
+      - Health
+  /storage/file:
+    delete:
+      description: Removes an object from storage bucket
+      parameters:
+      - description: File Key to delete
+        in: query
+        name: file_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete file from storage
+      tags:
+      - Storage
+  /storage/presign-preview:
+    get:
+      description: Creates a temporary signed GET URL to view/download a private file
+      parameters:
+      - description: File Key in storage
+        in: query
+        name: file_key
+        required: true
+        type: string
+      - description: Expiry duration (e.g. 15m)
+        in: query
+        name: expires_in
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PresignedPreviewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Generate presigned preview URL
+      tags:
+      - Storage
+  /storage/presign-upload:
+    post:
+      consumes:
+      - application/json
+      description: Creates a temporary direct upload URL for object storage
+      parameters:
+      - description: Upload presign payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.PresignUploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PresignedUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Generate presigned upload URL
+      tags:
+      - Storage
+  /storage/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Direct multipart upload to object storage
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Destination folder
+        in: formData
+        name: folder
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.UploadFileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Upload a file
+      tags:
+      - Storage
+  /users:
+    get:
+      description: Returns paginated list of users
+      parameters:
+      - description: Skip count
+        in: query
+        name: skip
+        type: integer
+      - description: Limit count
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user
+      parameters:
+      - description: Create user payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Create a user
+      tags:
+      - Users
+  /users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Marks user as deleted
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Mutation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.MutationRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Soft delete user
+      tags:
+      - Users
+    get:
+      description: Returns user details by user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Updates user details by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update user payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Update user
+      tags:
+      - Users
+  /users/{id}/restore:
+    post:
+      consumes:
+      - application/json
+      description: Restores a soft-deleted user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Mutation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/payloads.MutationRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Restore deleted user
+      tags:
+      - Users
+  /users/avatar:
+    put:
+      consumes:
+      - multipart/form-data
+      description: Uploads an avatar image and updates authenticated user profile
+      parameters:
+      - description: Avatar image file
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Update user avatar
+      tags:
+      - Storage
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

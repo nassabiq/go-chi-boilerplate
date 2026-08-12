@@ -1,0 +1,23 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Go build & test artifacts
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Local binaries / dist
+/bin/
+/dist/
+
+# Editor & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Temp
+tmp/

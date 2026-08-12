@@ -1,0 +1,2065 @@
+{
+    "info": {
+        "_postman_id": "8f3b6a9c-29b4-4b53-9a3d-0d6745f94a11",
+        "name": "Go Chi Boilerplate REST API",
+        "description": "Comprehensive Postman collection for the Go Chi Boilerplate APIs: Auth, Sessions, User CRUD, Storage, RBAC, Health Probes, and Metrics.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8080",
+            "type": "string"
+        },
+        {
+            "key": "maildev_url",
+            "value": "http://localhost:1080",
+            "type": "string"
+        },
+        {
+            "key": "user_name",
+            "value": "Test User",
+            "type": "string"
+        },
+        {
+            "key": "user_email",
+            "value": "test.user@example.com",
+            "type": "string"
+        },
+        {
+            "key": "user_password",
+            "value": "SecretPassword123!",
+            "type": "string"
+        },
+        {
+            "key": "new_password",
+            "value": "NewSecretPassword123!",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "refresh_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "session_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "verification_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "reset_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "new_email",
+            "value": "new.user@example.com",
+            "type": "string"
+        },
+        {
+            "key": "email_change_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "target_user_id",
+            "value": "1",
+            "type": "string"
+        },
+        {
+            "key": "target_file_key",
+            "value": "avatars/sample.jpg",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "01. Registration & Verification",
+            "item": [
+                {
+                    "name": "1.1 Register New Account",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "let ts = Date.now();",
+                                    "let generatedEmail = 'user_' + ts + '@example.com';",
+                                    "pm.collectionVariables.set('user_email', generatedEmail);",
+                                    "pm.collectionVariables.set('user_password', 'SecretPassword123!');",
+                                    "console.log('Registering user with email:', generatedEmail);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 201 Created', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "pm.test('User created in PENDING status', function () {",
+                                    "    let data = pm.response.json();",
+                                    "    pm.expect(data.email).to.eql(pm.collectionVariables.get('user_email'));",
+                                    "    pm.expect(data.status_id).to.eql(1);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"{{user_name}}\",\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/register",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "register"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.2 Fetch Verification Token from MailDev",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('MailDev responded 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let emails = pm.response.json();",
+                                    "pm.test('Email exists in MailDev', function () {",
+                                    "    pm.expect(emails.length).to.be.above(0);",
+                                    "});",
+                                    "if (emails && emails.length > 0) {",
+                                    "    let latest = emails[emails.length - 1];",
+                                    "    let content = latest.html || latest.text || '';",
+                                    "    let match = content.match(/\\/(?:verify|confirm-email)\\/([a-zA-Z0-9_%-]+)/);",
+                                    "    if (!match) {",
+                                    "        match = content.match(/[?&]token=([a-zA-Z0-9_%-]+)/);",
+                                    "    }",
+                                    "    pm.test('Extracted verification token', function () {",
+                                    "        pm.expect(match).to.not.be.null;",
+                                    "    });",
+                                    "    if (match && match[1]) {",
+                                    "        let token = decodeURIComponent(match[1]);",
+                                    "        pm.collectionVariables.set('verification_token', token);",
+                                    "        console.log('Saved verification_token:', token);",
+                                    "    }",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{maildev_url}}/email",
+                            "host": [
+                                "{{maildev_url}}"
+                            ],
+                            "path": [
+                                "email"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.3 Verify Email Address",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"token\": \"{{verification_token}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/verify-email",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "verify-email"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "1.4 Resend Verification (Optional)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/resend-verification",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "resend-verification"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "02. Authentication & Token Management",
+            "item": [
+                {
+                    "name": "2.1 Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let data = pm.response.json();",
+                                    "pm.test('Tokens returned', function () {",
+                                    "    pm.expect(data.access_token).to.not.be.empty;",
+                                    "    pm.expect(data.refresh_token).to.not.be.empty;",
+                                    "});",
+                                    "pm.collectionVariables.set('access_token', data.access_token);",
+                                    "pm.collectionVariables.set('refresh_token', data.refresh_token);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.2 Get User Profile (/auth/me)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let user = pm.response.json();",
+                                    "pm.test('User is ACTIVE', function () {",
+                                    "    pm.expect(user.status_id).to.eql(2);",
+                                    "    pm.expect(user.email).to.eql(pm.collectionVariables.get('user_email'));",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "2.3 Refresh Tokens",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let data = pm.response.json();",
+                                    "pm.test('Rotated tokens returned', function () {",
+                                    "    pm.expect(data.access_token).to.not.be.empty;",
+                                    "    pm.expect(data.refresh_token).to.not.be.empty;",
+                                    "});",
+                                    "pm.collectionVariables.set('access_token', data.access_token);",
+                                    "pm.collectionVariables.set('refresh_token', data.refresh_token);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/refresh",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "refresh"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03. Session Management",
+            "item": [
+                {
+                    "name": "3.1 List Active Sessions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let sessions = pm.response.json();",
+                                    "pm.test('Sessions array returned', function () {",
+                                    "    pm.expect(sessions).to.be.an('array');",
+                                    "    pm.expect(sessions.length).to.be.above(0);",
+                                    "});",
+                                    "if (sessions && sessions.length > 0) {",
+                                    "    pm.collectionVariables.set('session_id', sessions[0].id);",
+                                    "    console.log('Saved session_id:', sessions[0].id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/sessions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "sessions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.2 Revoke Single Session by ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/sessions/{{session_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "sessions",
+                                "{{session_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.3 Logout Current Session",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/logout",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "3.4 Logout All Sessions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/logout-all",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout-all"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "04. Password Management",
+            "item": [
+                {
+                    "name": "4.1 Forgot Password Request",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/forgot-password",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "forgot-password"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4.2 Fetch Reset Token from MailDev",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('MailDev responded 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let emails = pm.response.json();",
+                                    "pm.test('Reset email exists in MailDev', function () {",
+                                    "    pm.expect(emails.length).to.be.above(0);",
+                                    "});",
+                                    "if (emails && emails.length > 0) {",
+                                    "    let latest = emails[emails.length - 1];",
+                                    "    let content = latest.html || latest.text || '';",
+                                    "    let match = content.match(/\\/reset\\/([a-zA-Z0-9_%-]+)/);",
+                                    "    if (!match) {",
+                                    "        match = content.match(/[?&]token=([a-zA-Z0-9_%-]+)/);",
+                                    "    }",
+                                    "    pm.test('Extracted reset token', function () {",
+                                    "        pm.expect(match).to.not.be.null;",
+                                    "    });",
+                                    "    if (match && match[1]) {",
+                                    "        let token = decodeURIComponent(match[1]);",
+                                    "        pm.collectionVariables.set('reset_token', token);",
+                                    "        console.log('Saved reset_token:', token);",
+                                    "    }",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{maildev_url}}/email",
+                            "host": [
+                                "{{maildev_url}}"
+                            ],
+                            "path": [
+                                "email"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4.3 Reset Password",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"token\": \"{{reset_token}}\",\n    \"new_password\": \"{{new_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/reset-password",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "reset-password"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4.4 Login with New Password",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let data = pm.response.json();",
+                                    "pm.collectionVariables.set('access_token', data.access_token);",
+                                    "pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                                    "pm.collectionVariables.set('user_password', pm.collectionVariables.get('new_password'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{new_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "4.5 Change Password (Authenticated)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"current_password\": \"{{user_password}}\",\n    \"new_password\": \"UpdatedSecretPass999!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/change-password",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "change-password"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "05. Email Change Flow",
+            "item": [
+                {
+                    "name": "5.1 Request Email Change",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "let ts = Date.now();",
+                                    "pm.collectionVariables.set('new_email', 'changed_' + ts + '@example.com');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"new_email\": \"{{new_email}}\",\n    \"password\": \"UpdatedSecretPass999!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/change-email",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "change-email"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.2 Fetch Email Change Token from MailDev",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('MailDev responded 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let emails = pm.response.json();",
+                                    "if (emails && emails.length > 0) {",
+                                    "    let latest = emails[emails.length - 1];",
+                                    "    let content = latest.html || latest.text || '';",
+                                    "    let match = content.match(/\\/confirm-email\\/([a-zA-Z0-9_%-]+)/);",
+                                    "    if (!match) {",
+                                    "        match = content.match(/[?&]token=([a-zA-Z0-9_%-]+)/);",
+                                    "    }",
+                                    "    pm.test('Extracted email change token', function () {",
+                                    "        pm.expect(match).to.not.be.null;",
+                                    "    });",
+                                    "    if (match && match[1]) {",
+                                    "        let token = decodeURIComponent(match[1]);",
+                                    "        pm.collectionVariables.set('email_change_token', token);",
+                                    "        console.log('Saved email_change_token:', token);",
+                                    "    }",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{maildev_url}}/email",
+                            "host": [
+                                "{{maildev_url}}"
+                            ],
+                            "path": [
+                                "email"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5.3 Confirm Email Change",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.collectionVariables.set('user_email', pm.collectionVariables.get('new_email'));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"token\": \"{{email_change_token}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/confirm-email",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "confirm-email"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "06. Account Lifecycle",
+            "item": [
+                {
+                    "name": "6.1 Deactivate Account",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 204', function () {",
+                                    "    pm.expect([200, 204]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/deactivate",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "deactivate"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "6.2 Delete Account",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/auth/account",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "account"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "07. User Management",
+            "item": [
+                {
+                    "name": "7.1 List Users",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users?skip=0&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "skip",
+                                    "value": "0"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.2 Get User by ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.3 Create User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 201 Created', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Managed User\",\n  \"email\": \"managed.user@example.com\",\n  \"password\": \"Password123!\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.4 Update User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Updated User Name\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.5 Delete User (Soft Delete)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"version\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.6 Restore User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"version\": 2\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/restore",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "restore"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7.7 Update Avatar",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "avatar",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users/avatar",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "avatar"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "08. Storage & File Management",
+            "item": [
+                {
+                    "name": "8.1 Get Presigned Upload URL",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "let res = pm.response.json();",
+                                    "if (res.file_key) { pm.collectionVariables.set('target_file_key', res.file_key); }"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"file_name\": \"sample.pdf\",\n  \"content_type\": \"application/pdf\",\n  \"size\": 10240,\n  \"folder\": \"documents\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/storage/presign-upload",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "storage",
+                                "presign-upload"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "8.2 Direct File Upload",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 201 Created', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                },
+                                {
+                                    "key": "folder",
+                                    "value": "uploads",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/storage/upload",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "storage",
+                                "upload"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "8.3 Get Presigned Preview URL",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/storage/presign-preview?file_key={{target_file_key}}&expires_in=15m",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "storage",
+                                "presign-preview"
+                            ],
+                            "query": [
+                                {
+                                    "key": "file_key",
+                                    "value": "{{target_file_key}}"
+                                },
+                                {
+                                    "key": "expires_in",
+                                    "value": "15m"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "8.4 Delete File from Storage",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 204 No Content', function () {",
+                                    "    pm.response.to.have.status(204);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/storage/file?file_key={{target_file_key}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "storage",
+                                "file"
+                            ],
+                            "query": [
+                                {
+                                    "key": "file_key",
+                                    "value": "{{target_file_key}}"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "09. Role-Based Access Control (RBAC)",
+            "item": [
+                {
+                    "name": "9.1 Create Role",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 201', function () {",
+                                    "    pm.expect([200, 201]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"code\": \"manager\",\n  \"name\": \"Manager\",\n  \"description\": \"Branch manager role\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/roles",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "roles"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.2 Get Role by Code",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/roles/admin",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "roles",
+                                "admin"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.3 Create Permission",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 201', function () {",
+                                    "    pm.expect([200, 201]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"code\": \"reports.view\",\n  \"name\": \"View Reports\",\n  \"description\": \"View financial reports\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/permissions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "permissions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.4 Get Permission by Code",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/permissions/users.read",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "permissions",
+                                "users.read"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.5 Assign Permission to Role",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"permission_code\": \"reports.view\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/roles/manager/permissions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "roles",
+                                "manager",
+                                "permissions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.6 Get Role Permissions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/roles/admin/permissions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "roles",
+                                "admin",
+                                "permissions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.7 Assign Role to User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"role_code\": \"manager\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/roles",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "roles"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.8 Get User Roles",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/roles",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "roles"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.9 Get User Permissions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/permissions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "permissions"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.10 Check User Permission",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/permissions/check?permission=users.read",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "permissions",
+                                "check"
+                            ],
+                            "query": [
+                                {
+                                    "key": "permission",
+                                    "value": "users.read"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "9.11 Remove Role from User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 204', function () {",
+                                    "    pm.expect([200, 204]).to.include(pm.response.code);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/users/{{target_user_id}}/roles/manager",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{target_user_id}}",
+                                "roles",
+                                "manager"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "10. Health & Observability",
+            "item": [
+                {
+                    "name": "10.1 Liveness Probe (/health/live)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Status is live', function () {",
+                                    "    let body = pm.response.json();",
+                                    "    pm.expect(body.status).to.eql('live');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/health/live",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "health",
+                                "live"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "10.2 Readiness Probe (/health/ready)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 503', function () {",
+                                    "    pm.expect([200, 503]).to.include(pm.response.code);",
+                                    "});",
+                                    "pm.test('Contains component breakdown', function () {",
+                                    "    let body = pm.response.json();",
+                                    "    pm.expect(body).to.have.property('components');",
+                                    "    pm.expect(body.components).to.have.property('database');",
+                                    "    pm.expect(body.components).to.have.property('redis');",
+                                    "    pm.expect(body.components).to.have.property('nats');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/health/ready",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "health",
+                                "ready"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "10.3 Legacy Healthz (/healthz)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/healthz",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "healthz"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "10.4 Scrape Prometheus Metrics (/metrics)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 OK', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Contains OpenTelemetry metrics', function () {",
+                                    "    let text = pm.response.text();",
+                                    "    pm.expect(text).to.include('auth_');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/metrics",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "metrics"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

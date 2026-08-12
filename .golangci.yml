@@ -1,0 +1,45 @@
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - integration
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosec
+    - revive
+    - misspell
+    - gofmt
+    - goimports
+    - bodyclose
+    - noctx
+
+linters-settings:
+  govet:
+    enable:
+      - shadow
+  gosec:
+    excludes:
+      - G101 # False positive on variable names containing "token" or "password"
+      - G104 # Audit errors not checked (errcheck handles this better)
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+      - name: blank-imports
+        disabled: false
+
+issues:
+  exclude-dirs:
+    - docs/swagger
+  exclude-files:
+    - ".*wire_gen\\.go$"
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
